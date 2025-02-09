@@ -6,55 +6,64 @@ export default {
       typography: {
         DEFAULT: {
           css: {
-            color: '#fff',
-            a: {
-              color: '#3b82f6',
-              '&:hover': {
-                color: '#60a5fa',
-              },
-            },
-            strong: {
-              color: '#fff',
-            },
-            code: {
-              color: '#fff',
-              backgroundColor: '#1f2937',
-              padding: '0.25rem 0.4rem',
-              borderRadius: '0.25rem',
-              fontWeight: '400',
-            },
-            'code::before': {
-              content: '""',
-            },
-            'code::after': {
-              content: '""',
-            },
-            pre: {
-              backgroundColor: '#1f2937',
-              color: '#fff',
-            },
-            h1: {
-              color: '#fff',
-            },
-            h2: {
-              color: '#fff',
-            },
-            h3: {
-              color: '#fff',
-            },
-            h4: {
-              color: '#fff',
-            },
-            p: {
-              color: '#fff',
-            },
-            li: {
-              color: '#fff',
-            },
-            blockquote: {
-              color: '#d1d5db',
-              borderLeftColor: '#374151',
-            },
+            '--tw-prose-body': '#374151',
+            '--tw-prose-headings': '#111827',
+            '--tw-prose-lead': '#4b5563',
+            '--tw-prose-links': '#3b82f6',
+            '--tw-prose-bold': '#111827',
+            '--tw-prose-counters': '#6b7280',
+            '--tw-prose-bullets': '#d1d5db',
+            '--tw-prose-hr': '#e5e7eb',
+            '--tw-prose-quotes': '#111827',
+            '--tw-prose-quote-borders': '#e5e7eb',
+            '--tw-prose-captions': '#6b7280',
+            '--tw-prose-code': '#111827',
+            '--tw-prose-pre-code': '#00ff95',
+            '--tw-prose-pre-bg': '#0a0c10',
+            '--tw-prose-th-borders': '#d1d5db',
+            '--tw-prose-td-borders': '#e5e7eb',
+            '--tw-prose-invert-body': '#d1d5db',
+            '--tw-prose-invert-headings': '#fff',
+            '--tw-prose-invert-lead': '#9ca3af',
+            '--tw-prose-invert-links': '#93c5fd',
+            '--tw-prose-invert-bold': '#fff',
+            '--tw-prose-invert-counters': '#9ca3af',
+            '--tw-prose-invert-bullets': '#4b5563',
+            '--tw-prose-invert-hr': '#374151',
+            '--tw-prose-invert-quotes': '#f3f4f6',
+            '--tw-prose-invert-quote-borders': '#374151',
+            '--tw-prose-invert-captions': '#9ca3af',
+            '--tw-prose-invert-code': '#fff',
+            '--tw-prose-invert-pre-code': '#00ff95',
+            '--tw-prose-invert-pre-bg': '#0a0c10',
+            '--tw-prose-invert-th-borders': '#4b5563',
+            '--tw-prose-invert-td-borders': '#374151',
+          },
+        },
+        invert: {
+          css: {
+            '--tw-prose-body': '#d1d5db',
+            '--tw-prose-headings': '#fff',
+            '--tw-prose-lead': '#9ca3af',
+            '--tw-prose-links': '#93c5fd',
+            '--tw-prose-bold': '#fff',
+            '--tw-prose-counters': '#9ca3af',
+            '--tw-prose-bullets': '#4b5563',
+            '--tw-prose-hr': '#374151',
+            '--tw-prose-quotes': '#f3f4f6',
+            '--tw-prose-quote-borders': '#374151',
+            '--tw-prose-captions': '#9ca3af',
+            '--tw-prose-code': '#fff',
+            '--tw-prose-pre-code': '#00ff95',
+            '--tw-prose-pre-bg': '#0a0c10',
+            '--tw-prose-th-borders': '#4b5563',
+            '--tw-prose-td-borders': '#374151',
+          },
+        },
+        emerald: {
+          css: {
+            '--tw-prose-links': '#059669',
+            '--tw-prose-invert-links': '#34d399',
           },
         },
       },

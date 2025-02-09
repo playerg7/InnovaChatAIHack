@@ -21,25 +21,34 @@ export function ChatHistory({
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 
-  const conversations = messages.reduce((acc: { first: string; messages: Message[] }[], message, index) => {
+  // Group messages into conversations
+  const conversations = messages.reduce((acc: { title: string; messages: Message[] }[], message, index) => {
     if (message.role === 'user') {
+      // Get first 40 characters of user message as title
+      const title = message.content.length > 40 
+        ? message.content.substring(0, 40) + '...'
+        : message.content;
+
       if (index === 0 || messages[index - 1].role === 'assistant') {
-        acc.push({ first: message.content, messages: [message] });
+        // Start new conversation
+        acc.push({ title, messages: [message] });
       } else {
+        // Add to current conversation
         acc[acc.length - 1].messages.push(message);
       }
-    } else {
-      if (acc.length > 0) {
-        acc[acc.length - 1].messages.push(message);
-      }
+    } else if (acc.length > 0) {
+      // Add assistant message to current conversation
+      acc[acc.length - 1].messages.push(message);
     }
     return acc;
   }, []);
 
   return (
     <div className={`flex flex-col h-full ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
-      <div className="flex items-center justify-between p-4">
-        <h2 className="font-mono font-semibold">Chat History</h2>
+      <div className="flex items-center justify-between p-4 border-b border-opacity-20">
+        <h2 className={`font-mono font-semibold ${isDark ? 'text-[#00ff95]' : 'text-emerald-600'}`}>
+          Chat History
+        </h2>
         <div className="flex gap-2">
           <button
             onClick={onNewChat}
@@ -56,40 +65,61 @@ export function ChatHistory({
             <button
               onClick={onClearHistory}
               className={`p-2 rounded-lg hover:bg-opacity-10 ${
-                isDark ? 'hover:bg-red-500' : 'hover:bg-red-200'
+                isDark ? 'hover:bg-red-500/20 text-red-400' : 'hover:bg-red-100 text-red-500'
               } transition-colors`}
+              title="Clear History"
             >
-              <Trash2 className="w-4 h-4 text-red-500" />
+              <Trash2 className="w-4 h-4" />
             </button>
           )}
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
         {conversations.length === 0 ? (
-          <div className="p-4 text-center text-sm opacity-70">
+          <div className={`p-4 text-center text-sm ${
+            isDark ? 'text-[#00ff95]/60' : 'text-emerald-600/60'
+          }`}>
             No conversations yet
           </div>
         ) : (
-          conversations.map((conv, index) => (
-            <button
-              key={index}
-              onClick={() => onSelectConversation(index)}
-              className={`w-full p-3 flex items-start gap-3 hover:bg-opacity-10 ${
-                isDark
-                  ? `hover:bg-[#00ff9520] border-b border-[#00ff9520] ${
-                      currentConversationIndex === index ? 'bg-[#00ff9510]' : ''
-                    }`
-                  : `hover:bg-emerald-50 border-b border-emerald-100 ${
-                      currentConversationIndex === index ? 'bg-emerald-50' : ''
-                    }`
-              }`}
-            >
-              <MessageSquare className={`w-4 h-4 mt-1 ${isDark ? 'text-[#00ff95]' : 'text-emerald-600'}`} />
-              <span className="text-sm text-left line-clamp-2 font-mono">
-                {conv.first}
-              </span>
-            </button>
-          ))
+          <div className="space-y-1 p-2">
+            {conversations.map((conv, index) => (
+              <button
+                key={index}
+                onClick={() => onSelectConversation(index)}
+                className={`w-full p-3 flex items-start gap-3 rounded-lg transition-colors ${
+                  isDark
+                    ? `hover:bg-[#00ff9520] ${
+                        currentConversationIndex === index 
+                          ? 'bg-[#00ff9515] border border-[#00ff9530]' 
+                          : 'border border-transparent'
+                      }`
+                    : `hover:bg-emerald-50 ${
+                        currentConversationIndex === index 
+                          ? 'bg-emerald-50/70 border border-emerald-200' 
+                          : 'border border-transparent'
+                      }`
+                }`}
+              >
+                <MessageSquare 
+                  className={`w-4 h-4 mt-1 flex-shrink-0 ${
+                    isDark ? 'text-[#00ff95]' : 'text-emerald-600'
+                  }`} 
+                />
+                <span className={`text-sm text-left line-clamp-2 font-mono ${
+                  isDark 
+                    ? currentConversationIndex === index 
+                      ? 'text-[#00ff95]' 
+                      : 'text-[#00ff95]/80'
+                    : currentConversationIndex === index
+                      ? 'text-emerald-700'
+                      : 'text-emerald-600/80'
+                }`}>
+                  {conv.title}
+                </span>
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>
