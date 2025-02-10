@@ -9,6 +9,7 @@ import { useTheme } from './context/ThemeContext';
 
 const genAI = new GoogleGenerativeAI('AIzaSyDOlKpEHmzkCvCc3ZprZfDijez7WMfk8Yo');
 const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+const imageModel = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
 
 const STORAGE_KEY = 'innovachat-history';
 
@@ -34,7 +35,7 @@ function App() {
   }, [chatState.messages]);
 
   const handleSendMessage = async (content: string) => {
-    const userMessage: Message = { role: 'user', content };
+    const userMessage: Message = { role: 'user', content, type: 'text' };
     setChatState((prev) => ({
       ...prev,
       messages: [...prev.messages, userMessage],
@@ -43,24 +44,58 @@ function App() {
     }));
 
     try {
-      const result = await model.generateContent(content);
-      const response = await result.response;
-      const text = response.text();
+      // Build context from previous messages
+      const conversationHistory = chatState.messages
+        .slice(-4) // Get last 4 messages for context
+        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
+        .join('\n');
 
-      if (!text) {
-        throw new Error('Empty response from AI');
+      const contextPrompt = `Previous conversation:\n${conversationHistory}\n\nUser: ${content}\n\nAssistant:`;
+
+      // Check if the message is requesting image generation
+      const isImageRequest = content.toLowerCase().includes('generate image') || 
+                           content.toLowerCase().includes('create image') ||
+                           content.toLowerCase().includes('make an image');
+
+      let response;
+      if (isImageRequest) {
+        const geminiResponse = await model.generateContent(contextPrompt);
+        const result = await geminiResponse.response;
+        const text = result.text();
+
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: text,
+          type: 'image',
+          imageUrl: 'https://images.unsplash.com/photo-1682687982501-1e58ab814714' // Example image URL
+        };
+
+        setChatState((prev) => ({
+          ...prev,
+          messages: [...prev.messages, assistantMessage],
+          isLoading: false,
+        }));
+      } else {
+        const result = await model.generateContent(contextPrompt);
+        response = await result.response;
+        const text = response.text();
+
+        if (!text) {
+          throw new Error('Empty response from AI');
+        }
+
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: text,
+          type: 'text'
+        };
+
+        setChatState((prev) => ({
+          ...prev,
+          messages: [...prev.messages, assistantMessage],
+          isLoading: false,
+        }));
       }
-
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: text,
-      };
-
-      setChatState((prev) => ({
-        ...prev,
-        messages: [...prev.messages, assistantMessage],
-        isLoading: false,
-      }));
     } catch (error) {
       console.error('Error:', error);
       setChatState((prev) => ({

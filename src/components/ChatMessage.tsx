@@ -1,9 +1,8 @@
-import React, { useState } from 'react';
-import { Terminal, User, Copy, Check } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Terminal, User, Copy, Check, Image as ImageIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Message } from '../types';
 import { useTheme } from '../context/ThemeContext';
-import { TypeAnimation } from 'react-type-animation';
 
 interface ChatMessageProps {
   message: Message;
@@ -15,7 +14,10 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
   const isDark = theme === 'dark';
   const isUser = message.role === 'user';
   const [copiedSegments, setCopiedSegments] = useState<{[key: number]: boolean}>({});
-  const [isTypingComplete, setIsTypingComplete] = useState(false);
+  const [displayedContent, setDisplayedContent] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const typingRef = useRef<NodeJS.Timeout | null>(null);
+  const contentRef = useRef(message.content);
 
   const handleCopy = async (text: string, index: number) => {
     await navigator.clipboard.writeText(text);
@@ -25,115 +27,72 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
     }, 2000);
   };
 
-  const processContent = (content: string) => {
-    const segments = [];
-    let currentPos = 0;
-    const codeBlockRegex = /```(?:\w+)?\n?([^`]+)```/g;
-    let match;
+  useEffect(() => {
+    if (!isUser && isLatest && message.content !== displayedContent) {
+      setIsTyping(true);
+      let currentIndex = 0;
+      const content = message.content;
+      
+      const typeCharacter = () => {
+        if (currentIndex <= content.length) {
+          setDisplayedContent(content.slice(0, currentIndex));
+          currentIndex++;
+          
+          // Vary the typing speed for more natural effect
+          const baseDelay = 10; // Base delay in milliseconds
+          const variableDelay = Math.random() * 15; // Random delay between 0-15ms
+          const punctuationDelay = ['.', '!', '?', '\n'].includes(content[currentIndex - 1]) ? 300 : 0;
+          
+          typingRef.current = setTimeout(typeCharacter, baseDelay + variableDelay + punctuationDelay);
+        } else {
+          setIsTyping(false);
+        }
+      };
 
-    while ((match = codeBlockRegex.exec(content)) !== null) {
-      if (match.index > currentPos) {
-        segments.push({
-          type: 'text',
-          content: content.slice(currentPos, match.index).trim()
-        });
-      }
-      segments.push({
-        type: 'code',
-        content: match[1].trim()
-      });
-      currentPos = match.index + match[0].length;
+      typeCharacter();
+
+      return () => {
+        if (typingRef.current) {
+          clearTimeout(typingRef.current);
+        }
+      };
     }
+  }, [isUser, isLatest, message.content]);
 
-    if (currentPos < content.length) {
-      segments.push({
-        type: 'text',
-        content: content.slice(currentPos).trim()
-      });
-    }
+  const renderContent = () => {
+    const contentToRender = (!isUser && isLatest) ? displayedContent : message.content;
 
-    return segments.length > 0 ? segments : [{ type: 'text', content }];
-  };
-
-  const renderTypingContent = () => {
-    const segments = processContent(message.content);
     return (
-      <div className="space-y-4">
-        {segments.map((segment, index) => (
-          <div key={index}>
-            {segment.type === 'code' ? (
-              <div className="relative group">
-                <pre className="bg-[#0a0c10] text-[#00ff95] p-4 rounded-lg border border-[#00ff9550] overflow-x-auto">
-                  <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => handleCopy(segment.content, index)}
-                      className={`p-2 rounded-lg ${
-                        isDark
-                          ? 'hover:bg-[#00ff9520] text-[#00ff95]'
-                          : 'hover:bg-emerald-100 text-emerald-600'
-                      }`}
-                      title="Copy code"
-                    >
-                      {copiedSegments[index] ? (
-                        <Check className="w-4 h-4" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </button>
-                  </div>
-                  <TypeAnimation
-                    sequence={[
-                      segment.content,
-                      () => {
-                        if (index === segments.length - 1) {
-                          setIsTypingComplete(true);
-                        }
-                      }
-                    ]}
-                    wrapper="code"
-                    speed={75}
-                    cursor={false}
-                    className="block whitespace-pre"
-                  />
-                </pre>
-              </div>
-            ) : (
-              <div className="relative group">
-                <TypeAnimation
-                  sequence={[
-                    segment.content,
-                    () => {
-                      if (index === segments.length - 1) {
-                        setIsTypingComplete(true);
-                      }
-                    }
-                  ]}
-                  wrapper="div"
-                  speed={75}
-                  cursor={index === segments.length - 1 && !isTypingComplete}
-                  className={`prose max-w-none ${isDark ? 'prose-invert' : 'prose-emerald'}`}
-                />
-                <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => handleCopy(segment.content, index)}
-                    className={`p-2 rounded-lg ${
-                      isDark
-                        ? 'hover:bg-[#00ff9520] text-[#00ff95]'
-                        : 'hover:bg-emerald-100 text-emerald-600'
-                    }`}
-                    title="Copy text"
-                  >
-                    {copiedSegments[index] ? (
-                      <Check className="w-4 h-4" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+      <div className={`prose max-w-none relative group ${isDark ? 'prose-invert' : 'prose-emerald'}`}>
+        <div className={`${isTyping ? 'border-r-2 border-[#00ff95] animate-pulse' : ''}`}>
+          <ReactMarkdown>{contentToRender}</ReactMarkdown>
+        </div>
+        {message.type === 'image' && message.imageUrl && (
+          <div className="mt-4">
+            <img 
+              src={message.imageUrl} 
+              alt="Generated content"
+              className="rounded-lg shadow-lg max-w-full h-auto"
+            />
           </div>
-        ))}
+        )}
+        <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={() => handleCopy(message.content, -1)}
+            className={`p-2 rounded-lg ${
+              isDark
+                ? 'hover:bg-[#00ff9520] text-[#00ff95]'
+                : 'hover:bg-emerald-100 text-emerald-600'
+            }`}
+            title="Copy message"
+          >
+            {copiedSegments[-1] ? (
+              <Check className="w-4 h-4" />
+            ) : (
+              <Copy className="w-4 h-4" />
+            )}
+          </button>
+        </div>
       </div>
     );
   };
@@ -156,9 +115,15 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
                 isDark ? 'text-[#00ff95]' : 'text-emerald-600'
               }`} />
             ) : (
-              <Terminal className={`w-4 md:w-5 h-4 md:h-5 ${
-                isDark ? 'text-[#00ff95]' : 'text-emerald-600'
-              }`} />
+              message.type === 'image' ? (
+                <ImageIcon className={`w-4 md:w-5 h-4 md:h-5 ${
+                  isDark ? 'text-[#00ff95]' : 'text-emerald-600'
+                }`} />
+              ) : (
+                <Terminal className={`w-4 md:w-5 h-4 md:h-5 ${
+                  isDark ? 'text-[#00ff95]' : 'text-emerald-600'
+                }`} />
+              )
             )}
           </div>
         </div>
@@ -169,30 +134,7 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
             {isUser ? '> User' : '> System'}
           </div>
           <div className={`font-mono text-sm md:text-base ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
-            {!isUser && isLatest ? (
-              renderTypingContent()
-            ) : (
-              <div className={`prose ${isDark ? 'prose-invert' : 'prose-emerald'} max-w-none relative group`}>
-                <ReactMarkdown>{message.content}</ReactMarkdown>
-                <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button
-                    onClick={() => handleCopy(message.content, -1)}
-                    className={`p-2 rounded-lg ${
-                      isDark
-                        ? 'hover:bg-[#00ff9520] text-[#00ff95]'
-                        : 'hover:bg-emerald-100 text-emerald-600'
-                    }`}
-                    title="Copy message"
-                  >
-                    {copiedSegments[-1] ? (
-                      <Check className="w-4 h-4" />
-                    ) : (
-                      <Copy className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+            {renderContent()}
           </div>
         </div>
       </div>
