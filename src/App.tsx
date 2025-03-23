@@ -7,9 +7,9 @@ import { ChatHistory } from './components/ChatHistory';
 import { BrainCircuit, Terminal, Shield, Sun, Moon, Menu } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
 
-const genAI = new GoogleGenerativeAI('AIzaSyDOlKpEHmzkCvCc3ZprZfDijez7WMfk8Yo');
-const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
-const imageModel = genAI.getGenerativeModel({ model: 'gemini-pro-vision' });
+const genAI = new GoogleGenerativeAI('AIzaSyB9aOCwEWZE5Bfpt3Z_OSlSM8n6voc49GY');
+const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+const imageModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
 
 const STORAGE_KEY = 'innovachat-history';
 
