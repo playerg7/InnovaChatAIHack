@@ -1,10 +1,11 @@
 import React from 'react';
-import { Message } from '../types';
+import { Message, ChatHistory as ChatHistoryType } from '../types';
 import { MessageSquare, Trash2, Plus } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 interface ChatHistoryProps {
   messages: Message[];
+  chatHistories: ChatHistoryType[];
   onClearHistory: () => void;
   onSelectConversation: (index: number) => void;
   onNewChat: () => void;
@@ -13,6 +14,7 @@ interface ChatHistoryProps {
 
 export function ChatHistory({
   messages,
+  chatHistories,
   onClearHistory,
   onSelectConversation,
   onNewChat,
@@ -20,28 +22,6 @@ export function ChatHistory({
 }: ChatHistoryProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
-
-  // Group messages into conversations
-  const conversations = messages.reduce((acc: { title: string; messages: Message[] }[], message, index) => {
-    if (message.role === 'user') {
-      // Get first 40 characters of user message as title
-      const title = message.content.length > 40 
-        ? message.content.substring(0, 40) + '...'
-        : message.content;
-
-      if (index === 0 || messages[index - 1].role === 'assistant') {
-        // Start new conversation
-        acc.push({ title, messages: [message] });
-      } else {
-        // Add to current conversation
-        acc[acc.length - 1].messages.push(message);
-      }
-    } else if (acc.length > 0) {
-      // Add assistant message to current conversation
-      acc[acc.length - 1].messages.push(message);
-    }
-    return acc;
-  }, []);
 
   return (
     <div className={`flex flex-col h-full ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>
@@ -61,7 +41,7 @@ export function ChatHistory({
           >
             <Plus className="w-4 h-4" />
           </button>
-          {conversations.length > 0 && (
+          {chatHistories.length > 0 && (
             <button
               onClick={onClearHistory}
               className={`p-2 rounded-lg hover:bg-opacity-10 ${
@@ -75,7 +55,7 @@ export function ChatHistory({
         </div>
       </div>
       <div className="flex-1 overflow-y-auto">
-        {conversations.length === 0 ? (
+        {chatHistories.length === 0 ? (
           <div className={`p-4 text-center text-sm ${
             isDark ? 'text-[#00ff95]/60' : 'text-emerald-600/60'
           }`}>
@@ -83,9 +63,9 @@ export function ChatHistory({
           </div>
         ) : (
           <div className="space-y-1 p-2">
-            {conversations.map((conv, index) => (
+            {chatHistories.map((chat, index) => (
               <button
-                key={index}
+                key={chat.id}
                 onClick={() => onSelectConversation(index)}
                 className={`w-full p-3 flex items-start gap-3 rounded-lg transition-colors ${
                   isDark
@@ -115,7 +95,7 @@ export function ChatHistory({
                       ? 'text-emerald-700'
                       : 'text-emerald-600/80'
                 }`}>
-                  {conv.title}
+                  {chat.title}
                 </span>
               </button>
             ))}

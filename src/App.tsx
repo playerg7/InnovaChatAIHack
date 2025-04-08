@@ -1,42 +1,154 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Message, ChatState } from './types';
+import { Message, ChatState, ChatHistory } from './types';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
-import { ChatHistory } from './components/ChatHistory';
-import { BrainCircuit, Terminal, Shield, Sun, Moon, Menu } from 'lucide-react';
+import { ChatHistory as ChatHistoryComponent } from './components/ChatHistory';
+import { BrainCircuit, Terminal, Shield, Sun, Moon, Menu, LogIn, User } from 'lucide-react';
 import { useTheme } from './context/ThemeContext';
+import { useAuth } from './context/AuthContext';
+import { AuthModal } from './components/AuthModal';
+import { supabase } from './lib/supabase';
 
-const genAI = new GoogleGenerativeAI('AIzaSyB9aOCwEWZE5Bfpt3Z_OSlSM8n6voc49GY');
-const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-const imageModel = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
-const STORAGE_KEY = 'innovachat-history';
+// Initialize the Google Generative AI with your API key
+const API_KEY = 'AIzaSyCLEkO0V1hXwduYtf0DRs4G6_lioQmb4GI';
+const genAI = new GoogleGenerativeAI(API_KEY);
+const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
 function App() {
   const { theme, toggleTheme } = useTheme();
+  const { user } = useAuth();
   const isDark = theme === 'dark';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentConversationIndex, setCurrentConversationIndex] = useState(0);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [chatHistories, setChatHistories] = useState<ChatHistory[]>([]);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  const [chatState, setChatState] = useState<ChatState>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    return saved
-      ? JSON.parse(saved)
-      : {
-          messages: [],
-          isLoading: false,
-          error: null,
-        };
+  const [chatState, setChatState] = useState<ChatState>({
+    messages: [],
+    isLoading: false,
+    error: null,
   });
 
+  // Close profile menu when clicking outside
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(chatState));
-  }, [chatState.messages]);
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (!target.closest('.profile-menu') && !target.closest('.profile-button')) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Memoized function to load chat histories
+  const loadChatHistories = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('chat_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        // Ensure we're only setting histories for the current user
+        const filteredHistories = data
+          .filter(history => history.user_id === user.id)
+          .map(history => ({
+            ...history,
+            messages: Array.isArray(history.messages) ? history.messages : JSON.parse(history.messages)
+          }));
+        
+        setChatHistories(filteredHistories);
+        
+        // Only load the most recent chat on initial load
+        if (isInitialLoad && filteredHistories.length > 0) {
+          setChatState(prev => ({
+            ...prev,
+            messages: filteredHistories[0].messages || [],
+          }));
+          setIsInitialLoad(false);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading chat histories:', error);
+    }
+  }, [user, isInitialLoad]);
+
+  // Load chat histories when user logs in
+  useEffect(() => {
+    if (user) {
+      loadChatHistories();
+    } else {
+      setChatHistories([]);
+      if (isInitialLoad) {
+        setChatState({ messages: [], isLoading: false, error: null });
+      }
+    }
+  }, [user, loadChatHistories, isInitialLoad]);
+
+  // Memoized function to save chat history
+  const saveChatHistory = useCallback(async () => {
+    if (!user || chatState.messages.length === 0) return;
+
+    try {
+      const title = chatState.messages[0]?.content.substring(0, 40) + '...' || 'New Chat';
+      
+      const existingHistory = chatHistories[currentConversationIndex];
+      
+      const { error } = await supabase
+        .from('chat_history')
+        .upsert({
+          id: existingHistory?.id,
+          user_id: user.id,
+          title,
+          messages: JSON.stringify(chatState.messages), // Properly stringify messages
+          updated_at: new Date().toISOString(),
+        });
+
+      if (error) throw error;
+
+      // Refresh chat histories
+      loadChatHistories();
+    } catch (error) {
+      console.error('Error saving chat history:', error);
+    }
+  }, [user, chatState.messages, chatHistories, currentConversationIndex, loadChatHistories]);
+
+  // Save chat history when messages change
+  useEffect(() => {
+    if (user && chatState.messages.length > 0) {
+      const debounceTimer = setTimeout(() => {
+        saveChatHistory();
+      }, 1000);
+
+      return () => clearTimeout(debounceTimer);
+    }
+  }, [user, chatState.messages, saveChatHistory]);
+
+  const handleSignOut = async () => {
+    if (window.confirm('Are you sure you want to sign out?')) {
+      await supabase.auth.signOut();
+      setShowProfileMenu(false);
+      setChatHistories([]); // Clear chat histories on sign out
+      setChatState({ messages: [], isLoading: false, error: null }); // Reset current chat
+    }
+  };
 
   const handleSendMessage = async (content: string) => {
+    if (!content.trim()) return;
+
     const userMessage: Message = { role: 'user', content, type: 'text' };
-    setChatState((prev) => ({
+    
+    setChatState(prev => ({
       ...prev,
       messages: [...prev.messages, userMessage],
       isLoading: true,
@@ -44,61 +156,61 @@ function App() {
     }));
 
     try {
-      // Build context from previous messages
-      const conversationHistory = chatState.messages
-        .slice(-4) // Get last 4 messages for context
-        .map(msg => `${msg.role === 'user' ? 'User' : 'Assistant'}: ${msg.content}`)
-        .join('\n');
-
-      const contextPrompt = `Previous conversation:\n${conversationHistory}\n\nUser: ${content}\n\nAssistant:`;
-
-      // Check if the message is requesting image generation
+      // Check if it's an image request
       const isImageRequest = content.toLowerCase().includes('generate image') || 
-                           content.toLowerCase().includes('create image') ||
-                           content.toLowerCase().includes('make an image');
+                         content.toLowerCase().includes('create image') ||
+                         content.toLowerCase().includes('make an image');
 
-      let response;
+      let assistantMessage: Message;
+
       if (isImageRequest) {
-        const geminiResponse = await model.generateContent(contextPrompt);
-        const result = await geminiResponse.response;
-        const text = result.text();
-
-        const assistantMessage: Message = {
+        assistantMessage = {
           role: 'assistant',
-          content: text,
+          content: "Here's the image you requested.",
           type: 'image',
-          imageUrl: 'https://images.unsplash.com/photo-1682687982501-1e58ab814714' // Example image URL
+          imageUrl: 'https://images.unsplash.com/photo-1682687982501-1e58ab814714'
         };
-
-        setChatState((prev) => ({
-          ...prev,
-          messages: [...prev.messages, assistantMessage],
-          isLoading: false,
-        }));
       } else {
-        const result = await model.generateContent(contextPrompt);
-        response = await result.response;
-        const text = response.text();
+        try {
+          const prompt = content;
+          const result = await model.generateContent(prompt);
+          const response = await result.response;
+          const text = response.text();
 
-        if (!text) {
-          throw new Error('Empty response from AI');
+          if (!text) {
+            throw new Error('Empty response from AI');
+          }
+
+          assistantMessage = {
+            role: 'assistant',
+            content: text,
+            type: 'text'
+          };
+        } catch (aiError) {
+          console.error('AI Error:', aiError);
+          
+          assistantMessage = {
+            role: 'assistant',
+            content: "I apologize, but I'm having trouble generating a response right now. Could you try rephrasing your question?",
+            type: 'text'
+          };
         }
-
-        const assistantMessage: Message = {
-          role: 'assistant',
-          content: text,
-          type: 'text'
-        };
-
-        setChatState((prev) => ({
-          ...prev,
-          messages: [...prev.messages, assistantMessage],
-          isLoading: false,
-        }));
       }
+
+      setChatState(prev => ({
+        ...prev,
+        messages: [...prev.messages, assistantMessage],
+        isLoading: false,
+      }));
+
+      // Save the chat immediately after adding the assistant's response
+      if (user) {
+        await saveChatHistory();
+      }
+
     } catch (error) {
       console.error('Error:', error);
-      setChatState((prev) => ({
+      setChatState(prev => ({
         ...prev,
         isLoading: false,
         error: 'Failed to get response from AI. Please try again.',
@@ -106,22 +218,80 @@ function App() {
     }
   };
 
-  const handleClearHistory = () => {
-    if (window.confirm('Are you sure you want to clear all chat history?')) {
-      setChatState({ messages: [], isLoading: false, error: null });
-      setCurrentConversationIndex(0);
+  const handleClearHistory = async () => {
+    if (!window.confirm('Are you sure you want to clear all chat history?')) return;
+
+    if (user) {
+      try {
+        const { error } = await supabase
+          .from('chat_history')
+          .delete()
+          .eq('user_id', user.id);
+
+        if (error) throw error;
+        
+        setChatHistories([]);
+      } catch (error) {
+        console.error('Error clearing chat history:', error);
+      }
     }
+    
+    setChatState({ messages: [], isLoading: false, error: null });
+    setCurrentConversationIndex(0);
   };
 
   const handleNewChat = () => {
     setChatState({ messages: [], isLoading: false, error: null });
-    setCurrentConversationIndex(0);
+    setCurrentConversationIndex(chatHistories.length);
     setIsSidebarOpen(false);
   };
 
   const handleSelectConversation = (index: number) => {
-    setCurrentConversationIndex(index);
+    if (chatHistories[index]) {
+      setChatState(prev => ({
+        ...prev,
+        messages: chatHistories[index].messages || [],
+      }));
+      setCurrentConversationIndex(index);
+    }
     setIsSidebarOpen(false);
+  };
+
+  const renderProfileMenu = () => {
+    if (!user) return null;
+
+    return (
+      <div 
+        className={`profile-menu absolute right-0 top-full mt-2 w-64 rounded-lg shadow-lg ${
+          isDark ? 'bg-[#0f1318] border border-[#00ff9540]' : 'bg-white border border-emerald-100'
+        } p-3 z-[100]`}
+        style={{ 
+          right: '0',
+          transform: 'none',
+          maxWidth: 'min(calc(100vw - 2rem), 16rem)'
+        }}
+      >
+        <div className="px-4 py-2">
+          <div className={`text-sm font-medium ${isDark ? 'text-[#00ff95]' : 'text-emerald-600'}`}>
+            Signed in as
+          </div>
+          <div className={`text-sm truncate ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+            {user.email}
+          </div>
+        </div>
+        <div className="border-t my-2 border-opacity-20 border-current"></div>
+        <button
+          onClick={handleSignOut}
+          className={`w-full text-left px-4 py-2 text-sm rounded-md ${
+            isDark
+              ? 'text-red-400 hover:bg-red-500/10'
+              : 'text-red-600 hover:bg-red-50'
+          }`}
+        >
+          Sign out
+        </button>
+      </div>
+    );
   };
 
   return (
@@ -144,16 +314,73 @@ function App() {
         <span className={`ml-2 font-mono font-semibold ${
           isDark ? 'text-[#00ff95]' : 'text-emerald-600'
         }`}>InnovaChat AI</span>
-        <button
-          onClick={toggleTheme}
-          className={`ml-auto p-2 rounded-lg ${
-            isDark
-              ? 'hover:bg-[#00ff9520] text-[#00ff95]'
-              : 'hover:bg-emerald-100 text-emerald-600'
-          }`}
-        >
-          {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setShowProfileMenu(!showProfileMenu)}
+                className={`profile-button p-2 rounded-lg ${
+                  isDark
+                    ? 'hover:bg-[#00ff9520] text-[#00ff95]'
+                    : 'hover:bg-emerald-100 text-emerald-600'
+                }`}
+              >
+                <User className="w-5 h-5" />
+              </button>
+              {showProfileMenu && (
+                <div 
+                  className={`profile-menu fixed top-14 right-4 w-64 rounded-lg shadow-lg ${
+                    isDark ? 'bg-[#0f1318] border border-[#00ff9540]' : 'bg-white border-emerald-100'
+                  } p-3 z-[100]`}
+                  style={{ 
+                    maxWidth: 'calc(100vw - 2rem)'
+                  }}
+                >
+                  <div className="px-4 py-2">
+                    <div className={`text-sm font-medium ${isDark ? 'text-[#00ff95]' : 'text-emerald-600'}`}>
+                      Signed in as
+                    </div>
+                    <div className={`text-sm truncate ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                      {user.email}
+                    </div>
+                  </div>
+                  <div className="border-t my-2 border-opacity-20 border-current"></div>
+                  <button
+                    onClick={handleSignOut}
+                    className={`w-full text-left px-4 py-2 text-sm rounded-md ${
+                      isDark
+                        ? 'text-red-400 hover:bg-red-500/10'
+                        : 'text-red-600 hover:bg-red-50'
+                    }`}
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsAuthModalOpen(true)}
+              className={`p-2 rounded-lg ${
+                isDark
+                  ? 'hover:bg-[#00ff9520] text-[#00ff95]'
+                  : 'hover:bg-emerald-100 text-emerald-600'
+              }`}
+            >
+              <LogIn className="w-5 h-5" />
+            </button>
+          )}
+          <button
+            onClick={toggleTheme}
+            className={`p-2 rounded-lg ${
+              isDark
+                ? 'hover:bg-[#00ff9520] text-[#00ff95]'
+                : 'hover:bg-emerald-100 text-emerald-600'
+            }`}
+          >
+            {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+          </button>
+        </div>
       </div>
 
       {/* Sidebar */}
@@ -169,24 +396,53 @@ function App() {
           <span className={`ml-2 font-mono font-semibold ${
             isDark ? 'text-[#00ff95]' : 'text-emerald-600'
           }`}>InnovaChat AI</span>
-          <button
-            onClick={toggleTheme}
-            className={`ml-auto p-2 rounded-lg ${
-              isDark
-                ? 'hover:bg-[#00ff9520] text-[#00ff95]'
-                : 'hover:bg-emerald-100 text-emerald-600'
-            }`}
-          >
-            {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            {user ? (
+              <div className="relative">
+                <button
+                  onClick={() => setShowProfileMenu(!showProfileMenu)}
+                  className={`profile-button p-2 rounded-lg ${
+                    isDark
+                      ? 'hover:bg-[#00ff9520] text-[#00ff95]'
+                      : 'hover:bg-emerald-100 text-emerald-600'
+                  }`}
+                >
+                  <User className="w-5 h-5" />
+                </button>
+                {showProfileMenu && renderProfileMenu()}
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsAuthModalOpen(true)}
+                className={`p-2 rounded-lg ${
+                  isDark
+                    ? 'hover:bg-[#00ff9520] text-[#00ff95]'
+                    : 'hover:bg-emerald-100 text-emerald-600'
+                }`}
+              >
+                <LogIn className="w-5 h-5" />
+              </button>
+            )}
+            <button
+              onClick={toggleTheme}
+              className={`p-2 rounded-lg ${
+                isDark
+                  ? 'hover:bg-[#00ff9520] text-[#00ff95]'
+                  : 'hover:bg-emerald-100 text-emerald-600'
+              }`}
+            >
+              {isDark ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
         <div className="h-full md:h-[calc(100vh-3.5rem)] overflow-y-auto">
-          <ChatHistory
+          <ChatHistoryComponent
             messages={chatState.messages}
             onClearHistory={handleClearHistory}
             onSelectConversation={handleSelectConversation}
             onNewChat={handleNewChat}
             currentConversationIndex={currentConversationIndex}
+            chatHistories={chatHistories}
           />
         </div>
       </div>
@@ -209,11 +465,23 @@ function App() {
                 <h2 className={`text-xl md:text-2xl font-mono font-semibold mb-2 ${
                   isDark ? 'text-[#00ff95]' : 'text-emerald-600'
                 } mt-4`}>
-                  Secure AI Terminal
+                  {user ? 'Secure AI Terminal' : 'Welcome to InnovaChat AI'}
                 </h2>
                 <p className={isDark ? 'text-[#4a9e80]' : 'text-emerald-600/70'}>
-                  Awaiting your command...
+                  {user ? 'Awaiting your command...' : 'Start chatting or sign in to save your conversations'}
                 </p>
+                {!user && (
+                  <button
+                    onClick={() => setIsAuthModalOpen(true)}
+                    className={`mt-6 px-6 py-2 rounded-lg font-medium ${
+                      isDark
+                        ? 'bg-[#00ff95] hover:bg-[#00ff95]/90 text-black'
+                        : 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                    } transition-colors`}
+                  >
+                    Sign In
+                  </button>
+                )}
               </div>
             ) : (
               chatState.messages.map((message, index) => (
@@ -249,8 +517,16 @@ function App() {
         </div>
 
         {/* Chat Input */}
-        <ChatInput onSend={handleSendMessage} disabled={chatState.isLoading} />
+        <ChatInput 
+          onSend={handleSendMessage} 
+          disabled={chatState.isLoading}
+          showAuthPrompt={!user && chatState.messages.length > 0}
+          onAuthClick={() => setIsAuthModalOpen(true)}
+        />
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={isAuthModalOpen} onClose={() => setIsAuthModalOpen(false)} />
     </div>
   );
 }

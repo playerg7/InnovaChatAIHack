@@ -1,13 +1,15 @@
 import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
-import { Send, Terminal } from 'lucide-react';
+import { Send, Terminal, LogIn } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled: boolean;
+  showAuthPrompt?: boolean;
+  onAuthClick?: () => void;
 }
 
-export function ChatInput({ onSend, disabled }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, showAuthPrompt, onAuthClick }: ChatInputProps) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [input, setInput] = useState('');
@@ -43,12 +45,30 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
   };
 
   return (
-    <div className={`border-t p-3 md:p-4 ${
+    <div className={`fixed bottom-0 left-0 right-0 md:relative border-t p-3 md:p-4 ${
       isDark
         ? 'border-[#00ff9520] bg-[#0a0c10]'
         : 'border-emerald-100 bg-white'
-    }`}>
+    } z-50`}>
       <div className="max-w-3xl mx-auto relative">
+        {showAuthPrompt && (
+          <div className={`absolute bottom-full mb-4 left-0 right-0 p-3 rounded-lg ${
+            isDark ? 'bg-[#00ff9520] text-[#00ff95]' : 'bg-emerald-50 text-emerald-600'
+          } flex items-center justify-between`}>
+            <span className="text-sm">Sign in to save your chat history</span>
+            <button
+              onClick={onAuthClick}
+              className={`flex items-center gap-2 px-3 py-1 rounded-lg ${
+                isDark
+                  ? 'bg-[#00ff95] text-black hover:bg-[#00ff95]/90'
+                  : 'bg-emerald-600 text-white hover:bg-emerald-700'
+              }`}
+            >
+              <LogIn className="w-4 h-4" />
+              <span>Sign In</span>
+            </button>
+          </div>
+        )}
         <div className="relative">
           <Terminal className={`absolute left-3 md:left-4 top-4 w-4 md:w-5 h-4 md:h-5 ${
             isDark ? 'text-[#00ff95]' : 'text-emerald-600'

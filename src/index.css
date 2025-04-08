@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Prevent theme flashing */
+body {
+  transition: background-color 0.2s ease-in-out;
+}
+
+body.dark {
+  background-color: #0a0c10;
+  color: #fff;
+}
+
+body.light {
+  background-color: #fff;
+  color: #000;
+}
+
 @keyframes matrix-rain {
   0% {
     transform: translateY(-100%);

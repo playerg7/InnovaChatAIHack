@@ -10,13 +10,21 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
+  // Move the initialization outside of useState to prevent unnecessary re-renders
+  const getInitialTheme = (): Theme => {
     const saved = localStorage.getItem('theme');
-    return (saved as Theme) || 'dark';
-  });
+    if (saved === 'light' || saved === 'dark') {
+      return saved;
+    }
+    return 'dark';
+  };
+
+  const [theme, setTheme] = useState<Theme>(getInitialTheme);
 
   useEffect(() => {
     localStorage.setItem('theme', theme);
+    // Add class to body to prevent theme flicker
+    document.body.className = theme === 'dark' ? 'dark' : 'light';
   }, [theme]);
 
   const toggleTheme = () => {
