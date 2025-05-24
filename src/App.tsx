@@ -268,7 +268,7 @@ function App() {
         style={{ 
           right: '0',
           transform: 'none',
-          maxWidth: 'min(calc(100vw - 2rem), 14.25rem)'
+          maxWidth: 'min(calc(100vw - 2rem), 11rem)'
         }}
       >
         <div className="px-4 py-2">
