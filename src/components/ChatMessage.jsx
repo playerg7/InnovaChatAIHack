@@ -1,25 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Terminal, User, Copy, Check, Image as ImageIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Message } from '../types';
 import { useTheme } from '../context/ThemeContext';
 
-interface ChatMessageProps {
-  message: Message;
-  isLatest: boolean;
-}
-
-export function ChatMessage({ message, isLatest }: ChatMessageProps) {
+export function ChatMessage({ message, isLatest }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const isUser = message.role === 'user';
-  const [copiedSegments, setCopiedSegments] = useState<{[key: number]: boolean}>({});
+  const [copiedSegments, setCopiedSegments] = useState({});
   const [displayedContent, setDisplayedContent] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const typingRef = useRef<NodeJS.Timeout | null>(null);
-  const contentRef = useRef(message.content);
+  const typingRef = useRef(null);
 
-  const handleCopy = async (text: string, index: number) => {
+  const handleCopy = async (text, index) => {
     await navigator.clipboard.writeText(text);
     setCopiedSegments(prev => ({ ...prev, [index]: true }));
     setTimeout(() => {
@@ -57,7 +50,7 @@ export function ChatMessage({ message, isLatest }: ChatMessageProps) {
         }
       };
     }
-  }, [isUser, isLatest, message.content]);
+  }, [isUser, isLatest, message.content, displayedContent]);
 
   const renderContent = () => {
     const contentToRender = (!isUser && isLatest) ? displayedContent : message.content;

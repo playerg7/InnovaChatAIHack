@@ -3,12 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import { X, Github, Mail } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
-interface AuthModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-}
-
-export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+export function AuthModal({ isOpen, onClose }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const { signIn, signUp, signInWithGoogle, signInWithGithub } = useAuth();
@@ -20,7 +15,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setLoading(true);

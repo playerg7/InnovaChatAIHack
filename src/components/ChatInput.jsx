@@ -1,19 +1,12 @@
-import React, { useState, KeyboardEvent, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Send, Terminal, LogIn } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
-interface ChatInputProps {
-  onSend: (message: string) => void;
-  disabled: boolean;
-  showAuthPrompt?: boolean;
-  onAuthClick?: () => void;
-}
-
-export function ChatInput({ onSend, disabled, showAuthPrompt, onAuthClick }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, showAuthPrompt, onAuthClick }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
   const [input, setInput] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = useRef(null);
 
   const adjustTextareaHeight = () => {
     const textarea = textareaRef.current;
@@ -37,7 +30,7 @@ export function ChatInput({ onSend, disabled, showAuthPrompt, onAuthClick }: Cha
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent) => {
+  const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();

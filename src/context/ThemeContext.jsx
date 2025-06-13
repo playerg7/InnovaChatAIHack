@@ -1,17 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 
-type Theme = 'dark' | 'light';
+const ThemeContext = createContext(undefined);
 
-interface ThemeContextType {
-  theme: Theme;
-  toggleTheme: () => void;
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
-
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
+export function ThemeProvider({ children }) {
   // Move the initialization outside of useState to prevent unnecessary re-renders
-  const getInitialTheme = (): Theme => {
+  const getInitialTheme = () => {
     const saved = localStorage.getItem('theme');
     if (saved === 'light' || saved === 'dark') {
       return saved;
@@ -19,7 +12,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return 'dark';
   };
 
-  const [theme, setTheme] = useState<Theme>(getInitialTheme);
+  const [theme, setTheme] = useState(getInitialTheme);
 
   useEffect(() => {
     localStorage.setItem('theme', theme);

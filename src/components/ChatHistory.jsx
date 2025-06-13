@@ -1,16 +1,6 @@
 import React from 'react';
-import { Message, ChatHistory as ChatHistoryType } from '../types';
 import { MessageSquare, Trash2, Plus } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
-
-interface ChatHistoryProps {
-  messages: Message[];
-  chatHistories: ChatHistoryType[];
-  onClearHistory: () => void;
-  onSelectConversation: (index: number) => void;
-  onNewChat: () => void;
-  currentConversationIndex: number;
-}
 
 export function ChatHistory({
   messages,
@@ -19,7 +9,7 @@ export function ChatHistory({
   onSelectConversation,
   onNewChat,
   currentConversationIndex
-}: ChatHistoryProps) {
+}) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
 

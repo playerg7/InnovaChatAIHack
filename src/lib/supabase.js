@@ -16,7 +16,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
 });
 
 // Add RLS policies helper
-export async function ensureUserChatAccess(userId: string) {
+export async function ensureUserChatAccess(userId) {
   const { error } = await supabase
     .from('chat_history')
     .select('id')

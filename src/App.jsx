@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { Message, ChatState, ChatHistory } from './types';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
 import { ChatHistory as ChatHistoryComponent } from './components/ChatHistory';
@@ -22,11 +21,11 @@ function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [currentConversationIndex, setCurrentConversationIndex] = useState(0);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [chatHistories, setChatHistories] = useState<ChatHistory[]>([]);
+  const [chatHistories, setChatHistories] = useState([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
-  const [chatState, setChatState] = useState<ChatState>({
+  const [chatState, setChatState] = useState({
     messages: [],
     isLoading: false,
     error: null,
@@ -34,8 +33,8 @@ function App() {
 
   // Close profile menu when clicking outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
+    const handleClickOutside = (event) => {
+      const target = event.target;
       if (!target.closest('.profile-menu') && !target.closest('.profile-button')) {
         setShowProfileMenu(false);
       }
@@ -143,10 +142,10 @@ function App() {
     }
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content) => {
     if (!content.trim()) return;
 
-    const userMessage: Message = { role: 'user', content, type: 'text' };
+    const userMessage = { role: 'user', content, type: 'text' };
     
     setChatState(prev => ({
       ...prev,
@@ -161,7 +160,7 @@ function App() {
                          content.toLowerCase().includes('create image') ||
                          content.toLowerCase().includes('make an image');
 
-      let assistantMessage: Message;
+      let assistantMessage;
 
       if (isImageRequest) {
         assistantMessage = {
@@ -246,7 +245,7 @@ function App() {
     setIsSidebarOpen(false);
   };
 
-  const handleSelectConversation = (index: number) => {
+  const handleSelectConversation = (index) => {
     if (chatHistories[index]) {
       setChatState(prev => ({
         ...prev,
