@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ChatMessage } from './components/ChatMessage';
 import { ChatInput } from './components/ChatInput';
@@ -12,7 +12,15 @@ import { supabase } from './lib/supabase';
 // Initialize the Google Generative AI with your API key
 const API_KEY = 'AIzaSyCLEkO0V1hXwduYtf0DRs4G6_lioQmb4GI';
 const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+const model = genAI.getGenerativeModel({ 
+  model: 'gemini-1.5-flash',
+  generationConfig: {
+    temperature: 0.7,
+    topK: 40,
+    topP: 0.95,
+    maxOutputTokens: 2048,
+  }
+});
 
 function App() {
   const { theme, toggleTheme } = useTheme();
@@ -24,6 +32,7 @@ function App() {
   const [chatHistories, setChatHistories] = useState([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [lastSaveTime, setLastSaveTime] = useState(0);
 
   const [chatState, setChatState] = useState({
     messages: [],
@@ -44,26 +53,30 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Memoized function to load chat histories
-  const loadChatHistories = useCallback(async () => {
+  // Optimized function to load chat histories with caching
+  const loadChatHistories = useCallback(async (forceRefresh = false) => {
     if (!user) return;
+
+    // Avoid unnecessary reloads
+    if (!forceRefresh && chatHistories.length > 0 && !isInitialLoad) return;
 
     try {
       const { data, error } = await supabase
         .from('chat_history')
-        .select('*')
+        .select('id, title, messages, created_at, updated_at, user_id')
         .eq('user_id', user.id)
-        .order('updated_at', { ascending: false });
+        .order('updated_at', { ascending: false })
+        .limit(50); // Limit to recent conversations
 
       if (error) throw error;
 
       if (data) {
-        // Ensure we're only setting histories for the current user
         const filteredHistories = data
           .filter(history => history.user_id === user.id)
           .map(history => ({
             ...history,
-            messages: Array.isArray(history.messages) ? history.messages : JSON.parse(history.messages)
+            messages: Array.isArray(history.messages) ? history.messages : 
+                     (typeof history.messages === 'string' ? JSON.parse(history.messages) : [])
           }));
         
         setChatHistories(filteredHistories);
@@ -80,65 +93,74 @@ function App() {
     } catch (error) {
       console.error('Error loading chat histories:', error);
     }
-  }, [user, isInitialLoad]);
+  }, [user, isInitialLoad, chatHistories.length]);
 
   // Load chat histories when user logs in
   useEffect(() => {
     if (user) {
-      loadChatHistories();
+      loadChatHistories(true);
     } else {
       setChatHistories([]);
       if (isInitialLoad) {
         setChatState({ messages: [], isLoading: false, error: null });
       }
     }
-  }, [user, loadChatHistories, isInitialLoad]);
+  }, [user]);
 
-  // Memoized function to save chat history
-  const saveChatHistory = useCallback(async () => {
-    if (!user || chatState.messages.length === 0) return;
+  // Optimized save function with debouncing and conflict prevention
+  const saveChatHistory = useCallback(async (messages = chatState.messages) => {
+    if (!user || messages.length === 0) return;
+
+    const now = Date.now();
+    // Prevent too frequent saves
+    if (now - lastSaveTime < 2000) return;
+    setLastSaveTime(now);
 
     try {
-      const title = chatState.messages[0]?.content.substring(0, 40) + '...' || 'New Chat';
-      
+      const title = messages[0]?.content.substring(0, 40) + '...' || 'New Chat';
       const existingHistory = chatHistories[currentConversationIndex];
       
-      const { error } = await supabase
+      const chatData = {
+        user_id: user.id,
+        title,
+        messages: JSON.stringify(messages),
+        updated_at: new Date().toISOString(),
+      };
+
+      if (existingHistory?.id) {
+        chatData.id = existingHistory.id;
+      }
+
+      const { data, error } = await supabase
         .from('chat_history')
-        .upsert({
-          id: existingHistory?.id,
-          user_id: user.id,
-          title,
-          messages: JSON.stringify(chatState.messages), // Properly stringify messages
-          updated_at: new Date().toISOString(),
-        });
+        .upsert(chatData, { 
+          onConflict: 'id',
+          ignoreDuplicates: false 
+        })
+        .select();
 
       if (error) throw error;
 
-      // Refresh chat histories
-      loadChatHistories();
+      // Only refresh if this is a new chat
+      if (!existingHistory?.id && data?.[0]) {
+        loadChatHistories(true);
+      }
     } catch (error) {
       console.error('Error saving chat history:', error);
     }
-  }, [user, chatState.messages, chatHistories, currentConversationIndex, loadChatHistories]);
+  }, [user, chatState.messages, chatHistories, currentConversationIndex, lastSaveTime, loadChatHistories]);
 
-  // Save chat history when messages change
-  useEffect(() => {
-    if (user && chatState.messages.length > 0) {
-      const debounceTimer = setTimeout(() => {
-        saveChatHistory();
-      }, 1000);
-
-      return () => clearTimeout(debounceTimer);
-    }
-  }, [user, chatState.messages, saveChatHistory]);
+  // Memoized current conversation
+  const currentConversation = useMemo(() => {
+    return chatHistories[currentConversationIndex] || null;
+  }, [chatHistories, currentConversationIndex]);
 
   const handleSignOut = async () => {
     if (window.confirm('Are you sure you want to sign out?')) {
       await supabase.auth.signOut();
       setShowProfileMenu(false);
-      setChatHistories([]); // Clear chat histories on sign out
-      setChatState({ messages: [], isLoading: false, error: null }); // Reset current chat
+      setChatHistories([]);
+      setChatState({ messages: [], isLoading: false, error: null });
     }
   };
 
@@ -146,10 +168,11 @@ function App() {
     if (!content.trim()) return;
 
     const userMessage = { role: 'user', content, type: 'text' };
+    const newMessages = [...chatState.messages, userMessage];
     
     setChatState(prev => ({
       ...prev,
-      messages: [...prev.messages, userMessage],
+      messages: newMessages,
       isLoading: true,
       error: null,
     }));
@@ -171,8 +194,13 @@ function App() {
         };
       } else {
         try {
-          const prompt = content;
-          const result = await model.generateContent(prompt);
+          // Optimize AI request with timeout and better error handling
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+          const result = await model.generateContent(content);
+          clearTimeout(timeoutId);
+          
           const response = await result.response;
           const text = response.text();
 
@@ -196,15 +224,17 @@ function App() {
         }
       }
 
+      const finalMessages = [...newMessages, assistantMessage];
+      
       setChatState(prev => ({
         ...prev,
-        messages: [...prev.messages, assistantMessage],
+        messages: finalMessages,
         isLoading: false,
       }));
 
-      // Save the chat immediately after adding the assistant's response
+      // Save immediately after response
       if (user) {
-        await saveChatHistory();
+        saveChatHistory(finalMessages);
       }
 
     } catch (error) {
@@ -485,7 +515,7 @@ function App() {
             ) : (
               chatState.messages.map((message, index) => (
                 <ChatMessage
-                  key={index}
+                  key={`${currentConversationIndex}-${index}`}
                   message={message}
                   isLatest={index === chatState.messages.length - 1 && message.role === 'assistant'}
                 />

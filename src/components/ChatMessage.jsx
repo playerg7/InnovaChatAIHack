@@ -31,10 +31,10 @@ export function ChatMessage({ message, isLatest }) {
           setDisplayedContent(content.slice(0, currentIndex));
           currentIndex++;
           
-          // Vary the typing speed for more natural effect
-          const baseDelay = 10; // Base delay in milliseconds
-          const variableDelay = Math.random() * 15; // Random delay between 0-15ms
-          const punctuationDelay = ['.', '!', '?', '\n'].includes(content[currentIndex - 1]) ? 300 : 0;
+          // Faster typing speed for better performance
+          const baseDelay = 5; // Reduced from 10ms
+          const variableDelay = Math.random() * 5; // Reduced from 15ms
+          const punctuationDelay = ['.', '!', '?', '\n'].includes(content[currentIndex - 1]) ? 100 : 0; // Reduced from 300ms
           
           typingRef.current = setTimeout(typeCharacter, baseDelay + variableDelay + punctuationDelay);
         } else {
@@ -49,6 +49,10 @@ export function ChatMessage({ message, isLatest }) {
           clearTimeout(typingRef.current);
         }
       };
+    } else if (!isLatest || isUser) {
+      // For non-latest messages or user messages, show content immediately
+      setDisplayedContent(message.content);
+      setIsTyping(false);
     }
   }, [isUser, isLatest, message.content, displayedContent]);
 
@@ -66,6 +70,7 @@ export function ChatMessage({ message, isLatest }) {
               src={message.imageUrl} 
               alt="Generated content"
               className="rounded-lg shadow-lg max-w-full h-auto"
+              loading="lazy"
             />
           </div>
         )}
