@@ -32,7 +32,6 @@ function App() {
   const [chatHistories, setChatHistories] = useState([]);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const [lastSaveTime, setLastSaveTime] = useState(0);
 
   const [chatState, setChatState] = useState({
     messages: [],
@@ -53,12 +52,9 @@ function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Optimized function to load chat histories with caching
-  const loadChatHistories = useCallback(async (forceRefresh = false) => {
+  // Load chat histories function
+  const loadChatHistories = useCallback(async () => {
     if (!user) return;
-
-    // Avoid unnecessary reloads
-    if (!forceRefresh && chatHistories.length > 0 && !isInitialLoad) return;
 
     try {
       const { data, error } = await supabase
@@ -66,58 +62,55 @@ function App() {
         .select('id, title, messages, created_at, updated_at, user_id')
         .eq('user_id', user.id)
         .order('updated_at', { ascending: false })
-        .limit(50); // Limit to recent conversations
+        .limit(50);
 
       if (error) throw error;
 
       if (data) {
-        const filteredHistories = data
-          .filter(history => history.user_id === user.id)
-          .map(history => ({
-            ...history,
-            messages: Array.isArray(history.messages) ? history.messages : 
-                     (typeof history.messages === 'string' ? JSON.parse(history.messages) : [])
-          }));
+        const processedHistories = data.map(history => ({
+          ...history,
+          messages: typeof history.messages === 'string' 
+            ? JSON.parse(history.messages) 
+            : Array.isArray(history.messages) 
+              ? history.messages 
+              : []
+        }));
         
-        setChatHistories(filteredHistories);
+        setChatHistories(processedHistories);
         
-        // Only load the most recent chat on initial load
-        if (isInitialLoad && filteredHistories.length > 0) {
+        // Load the most recent chat on initial load
+        if (isInitialLoad && processedHistories.length > 0) {
           setChatState(prev => ({
             ...prev,
-            messages: filteredHistories[0].messages || [],
+            messages: processedHistories[0].messages || [],
           }));
+          setCurrentConversationIndex(0);
           setIsInitialLoad(false);
         }
       }
     } catch (error) {
       console.error('Error loading chat histories:', error);
     }
-  }, [user, isInitialLoad, chatHistories.length]);
+  }, [user, isInitialLoad]);
 
   // Load chat histories when user logs in
   useEffect(() => {
     if (user) {
-      loadChatHistories(true);
+      loadChatHistories();
     } else {
       setChatHistories([]);
-      if (isInitialLoad) {
-        setChatState({ messages: [], isLoading: false, error: null });
-      }
+      setChatState({ messages: [], isLoading: false, error: null });
+      setCurrentConversationIndex(0);
+      setIsInitialLoad(true);
     }
-  }, [user]);
+  }, [user, loadChatHistories]);
 
-  // Optimized save function with debouncing and conflict prevention
-  const saveChatHistory = useCallback(async (messages = chatState.messages) => {
-    if (!user || messages.length === 0) return;
-
-    const now = Date.now();
-    // Prevent too frequent saves
-    if (now - lastSaveTime < 2000) return;
-    setLastSaveTime(now);
+  // Save chat history function
+  const saveChatHistory = useCallback(async (messages) => {
+    if (!user || !messages || messages.length === 0) return;
 
     try {
-      const title = messages[0]?.content.substring(0, 40) + '...' || 'New Chat';
+      const title = messages[0]?.content?.substring(0, 40) + '...' || 'New Chat';
       const existingHistory = chatHistories[currentConversationIndex];
       
       const chatData = {
@@ -141,19 +134,14 @@ function App() {
 
       if (error) throw error;
 
-      // Only refresh if this is a new chat
+      // Update local state if new chat was created
       if (!existingHistory?.id && data?.[0]) {
-        loadChatHistories(true);
+        await loadChatHistories();
       }
     } catch (error) {
       console.error('Error saving chat history:', error);
     }
-  }, [user, chatState.messages, chatHistories, currentConversationIndex, lastSaveTime, loadChatHistories]);
-
-  // Memoized current conversation
-  const currentConversation = useMemo(() => {
-    return chatHistories[currentConversationIndex] || null;
-  }, [chatHistories, currentConversationIndex]);
+  }, [user, chatHistories, currentConversationIndex, loadChatHistories]);
 
   const handleSignOut = async () => {
     if (window.confirm('Are you sure you want to sign out?')) {
@@ -161,21 +149,26 @@ function App() {
       setShowProfileMenu(false);
       setChatHistories([]);
       setChatState({ messages: [], isLoading: false, error: null });
+      setCurrentConversationIndex(0);
+      setIsInitialLoad(true);
     }
   };
 
   const handleSendMessage = async (content) => {
     if (!content.trim()) return;
 
-    const userMessage = { role: 'user', content, type: 'text' };
-    const newMessages = [...chatState.messages, userMessage];
+    const userMessage = { role: 'user', content: content.trim(), type: 'text' };
     
-    setChatState(prev => ({
-      ...prev,
-      messages: newMessages,
-      isLoading: true,
-      error: null,
-    }));
+    // Immediately update the UI with user message
+    setChatState(prev => {
+      const newMessages = [...prev.messages, userMessage];
+      return {
+        ...prev,
+        messages: newMessages,
+        isLoading: true,
+        error: null,
+      };
+    });
 
     try {
       // Check if it's an image request
@@ -194,13 +187,7 @@ function App() {
         };
       } else {
         try {
-          // Optimize AI request with timeout and better error handling
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
           const result = await model.generateContent(content);
-          clearTimeout(timeoutId);
-          
           const response = await result.response;
           const text = response.text();
 
@@ -224,18 +211,21 @@ function App() {
         }
       }
 
-      const finalMessages = [...newMessages, assistantMessage];
-      
-      setChatState(prev => ({
-        ...prev,
-        messages: finalMessages,
-        isLoading: false,
-      }));
-
-      // Save immediately after response
-      if (user) {
-        saveChatHistory(finalMessages);
-      }
+      // Update state with assistant response
+      setChatState(prev => {
+        const finalMessages = [...prev.messages, assistantMessage];
+        
+        // Save to database after state update
+        if (user) {
+          setTimeout(() => saveChatHistory(finalMessages), 100);
+        }
+        
+        return {
+          ...prev,
+          messages: finalMessages,
+          isLoading: false,
+        };
+      });
 
     } catch (error) {
       console.error('Error:', error);
@@ -277,9 +267,12 @@ function App() {
 
   const handleSelectConversation = (index) => {
     if (chatHistories[index]) {
+      const selectedChat = chatHistories[index];
       setChatState(prev => ({
         ...prev,
-        messages: chatHistories[index].messages || [],
+        messages: selectedChat.messages || [],
+        isLoading: false,
+        error: null,
       }));
       setCurrentConversationIndex(index);
     }
@@ -515,7 +508,7 @@ function App() {
             ) : (
               chatState.messages.map((message, index) => (
                 <ChatMessage
-                  key={`${currentConversationIndex}-${index}`}
+                  key={`msg-${index}-${message.role}-${message.content?.substring(0, 10)}`}
                   message={message}
                   isLatest={index === chatState.messages.length - 1 && message.role === 'assistant'}
                 />

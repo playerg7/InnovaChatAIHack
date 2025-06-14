@@ -21,8 +21,16 @@ export function ChatMessage({ message, isLatest }) {
   };
 
   useEffect(() => {
-    if (!isUser && isLatest && message.content !== displayedContent) {
+    // Clear any existing timeout
+    if (typingRef.current) {
+      clearTimeout(typingRef.current);
+    }
+
+    // Only animate typing for assistant messages that are latest
+    if (!isUser && isLatest && message.content && message.content !== displayedContent) {
       setIsTyping(true);
+      setDisplayedContent(''); // Reset displayed content
+      
       let currentIndex = 0;
       const content = message.content;
       
@@ -31,10 +39,10 @@ export function ChatMessage({ message, isLatest }) {
           setDisplayedContent(content.slice(0, currentIndex));
           currentIndex++;
           
-          // Faster typing speed for better performance
-          const baseDelay = 5; // Reduced from 10ms
-          const variableDelay = Math.random() * 5; // Reduced from 15ms
-          const punctuationDelay = ['.', '!', '?', '\n'].includes(content[currentIndex - 1]) ? 100 : 0; // Reduced from 300ms
+          // Faster typing speed
+          const baseDelay = 3;
+          const variableDelay = Math.random() * 3;
+          const punctuationDelay = ['.', '!', '?', '\n'].includes(content[currentIndex - 1]) ? 50 : 0;
           
           typingRef.current = setTimeout(typeCharacter, baseDelay + variableDelay + punctuationDelay);
         } else {
@@ -43,21 +51,22 @@ export function ChatMessage({ message, isLatest }) {
       };
 
       typeCharacter();
-
-      return () => {
-        if (typingRef.current) {
-          clearTimeout(typingRef.current);
-        }
-      };
-    } else if (!isLatest || isUser) {
-      // For non-latest messages or user messages, show content immediately
-      setDisplayedContent(message.content);
+    } else {
+      // For all other messages, show content immediately
+      setDisplayedContent(message.content || '');
       setIsTyping(false);
     }
-  }, [isUser, isLatest, message.content, displayedContent]);
+
+    // Cleanup function
+    return () => {
+      if (typingRef.current) {
+        clearTimeout(typingRef.current);
+      }
+    };
+  }, [isUser, isLatest, message.content]);
 
   const renderContent = () => {
-    const contentToRender = (!isUser && isLatest) ? displayedContent : message.content;
+    const contentToRender = displayedContent || message.content || '';
 
     return (
       <div className={`prose max-w-none relative group ${isDark ? 'prose-invert' : 'prose-emerald'}`}>
