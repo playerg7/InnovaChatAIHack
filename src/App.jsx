@@ -69,11 +69,7 @@ function App() {
       if (data) {
         const processedHistories = data.map(history => ({
           ...history,
-          messages: typeof history.messages === 'string' 
-            ? JSON.parse(history.messages) 
-            : Array.isArray(history.messages) 
-              ? history.messages 
-              : []
+          messages: history.messages || []
         }));
         
         setChatHistories(processedHistories);
@@ -116,7 +112,7 @@ function App() {
       const chatData = {
         user_id: user.id,
         title,
-        messages: JSON.stringify(messages),
+        messages: messages,
         updated_at: new Date().toISOString(),
       };
 
