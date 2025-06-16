@@ -71,7 +71,52 @@ export function ChatMessage({ message, isLatest }) {
     return (
       <div className={`prose max-w-none relative group ${isDark ? 'prose-invert' : 'prose-emerald'}`}>
         <div className={`${isTyping ? 'border-r-2 border-[#00ff95] animate-pulse' : ''}`}>
-          <ReactMarkdown>{contentToRender}</ReactMarkdown>
+          <ReactMarkdown
+            components={{
+              pre: ({ children, ...props }) => (
+                <div className="relative">
+                  <pre {...props} className={`overflow-x-auto p-4 rounded-lg ${
+                    isDark ? 'bg-[#0a0c10] border border-[#00ff9550]' : 'bg-gray-900 border border-gray-700'
+                  } text-sm`}>
+                    {children}
+                  </pre>
+                  <button
+                    onClick={() => {
+                      const codeText = children?.props?.children || '';
+                      handleCopy(codeText, `code-${Math.random()}`);
+                    }}
+                    className={`absolute top-2 right-2 p-2 rounded-lg ${
+                      isDark
+                        ? 'bg-[#00ff9520] hover:bg-[#00ff9530] text-[#00ff95]'
+                        : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
+                    } opacity-0 group-hover:opacity-100 transition-opacity`}
+                    title="Copy code"
+                  >
+                    {copiedSegments[`code-${Math.random()}`] ? (
+                      <Check className="w-4 h-4" />
+                    ) : (
+                      <Copy className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              ),
+              code: ({ inline, children, ...props }) => (
+                inline ? (
+                  <code {...props} className={`px-1 py-0.5 rounded text-sm ${
+                    isDark ? 'bg-[#00ff9520] text-[#00ff95]' : 'bg-emerald-100 text-emerald-800'
+                  }`}>
+                    {children}
+                  </code>
+                ) : (
+                  <code {...props} className={isDark ? 'text-[#00ff95]' : 'text-emerald-400'}>
+                    {children}
+                  </code>
+                )
+              )
+            }}
+          >
+            {contentToRender}
+          </ReactMarkdown>
         </div>
         {message.type === 'image' && message.imageUrl && (
           <div className="mt-4">
@@ -134,13 +179,13 @@ export function ChatMessage({ message, isLatest }) {
             )}
           </div>
         </div>
-        <div className="flex-1 space-y-2 overflow-x-auto">
+        <div className="flex-1 space-y-2 overflow-x-auto min-w-0">
           <div className={`font-mono text-sm md:text-base ${
             isDark ? 'text-[#00ff95]' : 'text-emerald-600'
           }`}>
             {isUser ? '> User' : '> System'}
           </div>
-          <div className={`font-mono text-sm md:text-base ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+          <div className={`font-mono text-sm md:text-base ${isDark ? 'text-gray-200' : 'text-gray-700'} break-words`}>
             {renderContent()}
           </div>
         </div>

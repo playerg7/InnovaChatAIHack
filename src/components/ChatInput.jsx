@@ -38,24 +38,24 @@ export function ChatInput({ onSend, disabled, showAuthPrompt, onAuthClick }) {
   };
 
   return (
-    <div className={`fixed bottom-0 left-0 right-0 md:relative border-t p-3 md:p-4 ${
+    <div className={`border-t p-3 md:p-4 ${
       isDark
         ? 'border-[#00ff9520] bg-[#0a0c10]'
         : 'border-emerald-100 bg-white'
-    } z-50`}>
+    }`}>
       <div className="max-w-3xl mx-auto relative">
         {showAuthPrompt && (
           <div className={`absolute bottom-full mb-4 left-0 right-0 p-3 rounded-lg ${
             isDark ? 'bg-[#00ff9520] text-[#00ff95]' : 'bg-emerald-50 text-emerald-600'
-          } flex items-center justify-between`}>
+          } flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2`}>
             <span className="text-sm">Sign in to save your chat history</span>
             <button
               onClick={onAuthClick}
-              className={`flex items-center gap-2 px-3 py-1 rounded-lg ${
+              className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm ${
                 isDark
                   ? 'bg-[#00ff95] text-black hover:bg-[#00ff95]/90'
                   : 'bg-emerald-600 text-white hover:bg-emerald-700'
-              }`}
+              } flex-shrink-0`}
             >
               <LogIn className="w-4 h-4" />
               <span>Sign In</span>

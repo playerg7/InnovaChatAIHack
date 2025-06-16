@@ -87,3 +87,57 @@ pre::before {
   height: 1px;
   background: linear-gradient(90deg, transparent, #00ff95, transparent);
 }
+
+/* Mobile responsive fixes */
+@media (max-width: 768px) {
+  /* Ensure proper spacing on mobile */
+  .prose {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  
+  .prose pre {
+    font-size: 12px;
+    padding: 0.75rem;
+    margin: 0.5rem 0;
+  }
+  
+  .prose code {
+    font-size: 12px;
+  }
+  
+  /* Fix mobile viewport height issues */
+  .mobile-safe-area {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Ensure text doesn't overflow on small screens */
+.break-words {
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Loading animation */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+/* Smooth transitions for sidebar */
+.sidebar {
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Fix for mobile input focus */
+@media (max-width: 768px) {
+  input, textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+  }
+}
