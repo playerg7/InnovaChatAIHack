@@ -490,7 +490,7 @@ function App() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
         {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto pb-4 md:pb-0">
+        <div className="flex-1 overflow-y-auto pb-20 md:pb-4">
           <div className="max-w-3xl mx-auto px-4 md:px-6">
             {chatState.messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-4 md:p-8">
@@ -556,8 +556,8 @@ function App() {
           </div>
         </div>
 
-        {/* Chat Input */}
-        <div className="flex-shrink-0">
+        {/* Chat Input - Fixed at bottom */}
+        <div className="flex-shrink-0 fixed md:relative bottom-0 left-0 right-0 md:bottom-auto md:left-auto md:right-auto z-30">
           <ChatInput 
             onSend={handleSendMessage} 
             disabled={chatState.isLoading}

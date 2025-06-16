@@ -110,6 +110,12 @@ pre::before {
   .mobile-safe-area {
     padding-bottom: env(safe-area-inset-bottom);
   }
+  
+  /* Ensure input is above mobile navigation */
+  .chat-input-mobile {
+    padding-bottom: calc(env(safe-area-inset-bottom) + 1rem);
+    z-index: 1000;
+  }
 }
 
 /* Ensure text doesn't overflow on small screens */
@@ -139,5 +145,26 @@ pre::before {
 @media (max-width: 768px) {
   input, textarea {
     font-size: 16px; /* Prevents zoom on iOS */
+  }
+  
+  /* Ensure proper spacing for fixed input on mobile */
+  body {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Mobile input positioning fix */
+@media (max-width: 768px) {
+  .mobile-input-container {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 30;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  .mobile-content-padding {
+    padding-bottom: 120px; /* Space for fixed input */
   }
 }

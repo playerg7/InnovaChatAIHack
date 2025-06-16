@@ -42,7 +42,7 @@ export function ChatInput({ onSend, disabled, showAuthPrompt, onAuthClick }) {
       isDark
         ? 'border-[#00ff9520] bg-[#0a0c10]'
         : 'border-emerald-100 bg-white'
-    }`}>
+    } md:relative`}>
       <div className="max-w-3xl mx-auto relative">
         {showAuthPrompt && (
           <div className={`absolute bottom-full mb-4 left-0 right-0 p-3 rounded-lg ${
