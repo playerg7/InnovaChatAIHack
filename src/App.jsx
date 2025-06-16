@@ -39,6 +39,21 @@ function App() {
     error: null,
   });
 
+  // Close sidebar when clicking outside on mobile
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const target = event.target;
+      if (isSidebarOpen && !target.closest('.sidebar') && !target.closest('.sidebar-toggle')) {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    if (isSidebarOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isSidebarOpen]);
+
   // Close profile menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -322,7 +337,7 @@ function App() {
       }`}>
         <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-          className={`p-2 rounded-lg ${
+          className={`sidebar-toggle p-2 rounded-lg ${
             isDark ? 'text-[#00ff95]' : 'text-emerald-600'
           }`}
         >
@@ -401,12 +416,17 @@ function App() {
         </div>
       </div>
 
+      {/* Sidebar Overlay for Mobile */}
+      {isSidebarOpen && (
+        <div className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-40" />
+      )}
+
       {/* Sidebar */}
       <div className={`${
-        isSidebarOpen ? 'block' : 'hidden'
-      } md:block w-full md:w-[260px] fixed md:relative z-50 h-[calc(100vh-3.5rem)] md:h-screen ${
+        isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+      } md:translate-x-0 sidebar fixed md:relative z-50 w-[280px] md:w-[260px] h-[calc(100vh-3.5rem)] md:h-screen ${
         isDark ? 'bg-[#0f1318] border-[#00ff9520]' : 'bg-white border-emerald-100'
-      } md:border-r`}>
+      } md:border-r transition-transform duration-300 ease-in-out`}>
         <div className={`hidden md:flex h-14 items-center px-4 border-b ${
           isDark ? 'bg-[#0a0c10] border-[#00ff9520]' : 'bg-emerald-50 border-emerald-100'
         }`}>
@@ -461,6 +481,8 @@ function App() {
             onNewChat={handleNewChat}
             currentConversationIndex={currentConversationIndex}
             chatHistories={chatHistories}
+            onCloseSidebar={() => setIsSidebarOpen(false)}
+            isMobile={true}
           />
         </div>
       </div>
@@ -468,7 +490,7 @@ function App() {
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-[calc(100vh-3.5rem)] md:h-screen">
         {/* Messages Container */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-4 md:pb-0">
           <div className="max-w-3xl mx-auto px-4 md:px-6">
             {chatState.messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-center p-4 md:p-8">
@@ -512,16 +534,16 @@ function App() {
             )}
             {chatState.isLoading && (
               <div className={`p-4 md:p-6 text-center ${isDark ? 'text-[#00ff95]' : 'text-emerald-600'}`}>
-                <div className="animate-pulse flex items-center justify-center gap-2">
-                  <div className={`w-2 h-2 ${
-                    isDark ? 'bg-[#00ff95]' : 'bg-emerald-600'
-                  } rounded-full animate-bounce`}></div>
-                  <div className={`w-2 h-2 ${
-                    isDark ? 'bg-[#00ff95]' : 'bg-emerald-600'
-                  } rounded-full animate-bounce [animation-delay:0.2s]`}></div>
-                  <div className={`w-2 h-2 ${
-                    isDark ? 'bg-[#00ff95]' : 'bg-emerald-600'
-                  } rounded-full animate-bounce [animation-delay:0.4s]`}></div>
+                <div className="flex items-center justify-center gap-3">
+                  <div className="relative">
+                    <div className={`w-8 h-8 border-2 border-transparent ${
+                      isDark ? 'border-t-[#00ff95]' : 'border-t-emerald-600'
+                    } rounded-full animate-spin`}></div>
+                    <BrainCircuit className={`w-4 h-4 ${
+                      isDark ? 'text-[#00ff95]' : 'text-emerald-600'
+                    } absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2`} />
+                  </div>
+                  <span className="font-mono text-sm">Generating response...</span>
                 </div>
               </div>
             )}
@@ -535,12 +557,14 @@ function App() {
         </div>
 
         {/* Chat Input */}
-        <ChatInput 
-          onSend={handleSendMessage} 
-          disabled={chatState.isLoading}
-          showAuthPrompt={!user && chatState.messages.length > 0}
-          onAuthClick={() => setIsAuthModalOpen(true)}
-        />
+        <div className="flex-shrink-0">
+          <ChatInput 
+            onSend={handleSendMessage} 
+            disabled={chatState.isLoading}
+            showAuthPrompt={!user && chatState.messages.length > 0}
+            onAuthClick={() => setIsAuthModalOpen(true)}
+          />
+        </div>
       </div>
 
       {/* Auth Modal */}

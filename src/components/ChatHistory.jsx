@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageSquare, Trash2, Plus } from 'lucide-react';
+import { MessageSquare, Trash2, Plus, X } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 
 export function ChatHistory({
@@ -8,7 +8,9 @@ export function ChatHistory({
   onClearHistory,
   onSelectConversation,
   onNewChat,
-  currentConversationIndex
+  currentConversationIndex,
+  onCloseSidebar,
+  isMobile
 }) {
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -40,6 +42,19 @@ export function ChatHistory({
               title="Clear History"
             >
               <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+          {isMobile && (
+            <button
+              onClick={onCloseSidebar}
+              className={`md:hidden p-2 rounded-lg hover:bg-opacity-10 ${
+                isDark
+                  ? 'hover:bg-[#00ff9520] text-[#00ff95]'
+                  : 'hover:bg-emerald-100 text-emerald-600'
+              } transition-colors`}
+              title="Close"
+            >
+              <X className="w-4 h-4" />
             </button>
           )}
         </div>
