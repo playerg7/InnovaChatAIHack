@@ -10,7 +10,7 @@ import { AuthModal } from './components/AuthModal';
 import { supabase } from './lib/supabase';
 
 // Initialize the Google Generative AI with your API key
-const API_KEY = 'AIzaSyCLEkO0V1hXwduYtf0DRs4G6_lioQmb4GI';
+const API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(API_KEY);
 const model = genAI.getGenerativeModel({ 
   model: 'gemini-1.5-flash',
